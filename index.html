@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TeleVault Security Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+  <style>
+    :root {
+      --bg: #000000;
+      --card-bg: #080808;
+      --card-border: #1a1a1a;
+      --card-border-hover: #2a2a2a;
+      --accent: #10b981;
+      --accent-glow: rgba(16, 185, 129, 0.15);
+      --accent-danger: #ef4444;
+      --text-main: #f3f4f6;
+      --text-muted: #888888;
+      --text-dim: #555555;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    code, pre, .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Container */
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+      width: 100%;
+    }
+
+    /* Lock Screen */
+    #lock-screen {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+
+    .lock-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 2.5rem 2rem;
+      max-width: 440px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.8);
+      position: relative;
+    }
+
+    .shield-icon {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 1.5rem;
+      background: #0d1a14;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent);
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    .lock-card h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 0.5rem;
+    }
+
+    .lock-card p {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin-bottom: 2rem;
+      line-height: 1.5;
+    }
+
+    .input-group {
+      position: relative;
+      margin-bottom: 1.25rem;
+    }
+
+    .input-group input {
+      width: 100%;
+      background: #000000;
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 0.9rem 3rem 0.9rem 1rem;
+      color: #ffffff;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .input-group input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 12px var(--accent-glow);
+    }
+
+    .toggle-pwd {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px;
+    }
+
+    .toggle-pwd:hover {
+      color: var(--text-main);
+    }
+
+    .btn-primary {
+      width: 100%;
+      background: var(--accent);
+      color: #000000;
+      border: none;
+      border-radius: 10px;
+      padding: 0.9rem 1.5rem;
+      font-weight: 700;
+      font-size: 0.95rem;
+      letter-spacing: 0.03em;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .btn-primary:hover {
+      filter: brightness(1.1);
+      box-shadow: 0 0 16px var(--accent-glow);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      filter: grayscale(1);
+    }
+
+    .custom-file-upload {
+      margin-top: 1.25rem;
+      font-size: 0.8rem;
+      color: var(--text-dim);
+    }
+
+    .custom-file-upload label {
+      color: var(--text-muted);
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    .custom-file-upload label:hover {
+      color: var(--accent);
+    }
+
+    #file-input {
+      display: none;
+    }
+
+    .alert {
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      margin-top: 1rem;
+      display: none;
+      text-align: left;
+    }
+
+    .alert-error {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #f87171;
+    }
+
+    .alert-info {
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      color: #34d399;
+    }
+
+    /* Dashboard Header */
+    #dashboard-view {
+      display: none;
+      flex: 1;
+    }
+
+    header {
+      background: #040404;
+      border-bottom: 1px solid var(--card-border);
+      padding: 1.25rem 0;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      backdrop-filter: blur(10px);
+    }
+
+    .header-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .logo-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .logo-badge h2 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 20px;
+      font-size: 0.75rem;
+      color: var(--accent);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      background: var(--accent);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--accent);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .btn-secondary {
+      background: #000000;
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      border-radius: 8px;
+      padding: 0.55rem 0.9rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.2s;
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--card-border-hover);
+      background: #0d0d0d;
+    }
+
+    .btn-danger {
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      color: #f87171;
+      border-radius: 8px;
+      padding: 0.55rem 0.9rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-danger:hover {
+      background: rgba(239, 68, 68, 0.18);
+    }
+
+    /* Tabs Navigation */
+    .tabs {
+      display: flex;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--card-border);
+      margin: 1.5rem 0 2rem;
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      padding: 0.75rem 1.25rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-main);
+    }
+
+    .tab-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Section Headings */
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.25rem;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .section-header h3 {
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+
+    /* Cards & Tables */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 1.5rem;
+    }
+
+    .table-container {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.85rem;
+    }
+
+    th {
+      background: #030303;
+      padding: 0.85rem 1.25rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      border-bottom: 1px solid var(--card-border);
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+    }
+
+    td {
+      padding: 0.9rem 1.25rem;
+      border-bottom: 1px solid var(--card-border);
+      color: var(--text-main);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: #0b0b0b;
+    }
+
+    /* Secret Value Row */
+    .secret-key {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+      color: #38bdf8;
+      font-size: 0.82rem;
+    }
+
+    .secret-value-box {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      background: #000000;
+      border: 1px solid var(--card-border);
+      padding: 0.35rem 0.65rem;
+      border-radius: 6px;
+      max-width: 500px;
+      overflow: hidden;
+    }
+
+    .secret-value {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .icon-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2px 4px;
+      border-radius: 4px;
+      transition: color 0.15s;
+    }
+
+    .icon-btn:hover {
+      color: var(--text-main);
+    }
+
+    /* Raw Code Block */
+    .code-block {
+      background: #000000;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: #d1d5db;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      line-height: 1.6;
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+    }
+
+    .badge-db { background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
+    .badge-session { background: rgba(168, 85, 247, 0.12); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); }
+    .badge-config { background: rgba(16, 185, 129, 0.12); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-json { background: rgba(251, 191, 36, 0.12); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.3); }
+
+    /* Toast Notification */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #111111;
+      border: 1px solid var(--accent);
+      color: #ffffff;
+      padding: 0.75rem 1.25rem;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    #toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.85);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      z-index: 100;
+    }
+
+    .modal-content {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      max-width: 800px;
+      width: 100%;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.9);
+    }
+
+    .modal-header {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h4 {
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    .modal-body {
+      padding: 1.25rem 1.5rem;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    /* Grid for User cards */
+    .user-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1rem;
+    }
+
+    .user-card {
+      background: #000000;
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 1.25rem;
+    }
+
+    .user-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Lock Screen -->
+  <div id="lock-screen">
+    <div class="lock-card">
+      <div class="shield-icon">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+        </svg>
+      </div>
+      <h1>Cloud Security Vault</h1>
+      <p>Enter master passphrase to decrypt and inspect the bot credentials and backups in your browser.</p>
+
+      <form id="unlock-form" onsubmit="handleUnlock(event)">
+        <div class="input-group">
+          <input type="password" id="master-password" placeholder="Enter Master Password" autofocus required>
+          <button type="button" class="toggle-pwd" onclick="togglePasswordVisibility()" title="Show/Hide">
+            <svg id="eye-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+          </button>
+        </div>
+
+        <button type="submit" id="unlock-btn" class="btn-primary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>
+          Unlock & Decrypt
+        </button>
+      </form>
+
+      <div class="custom-file-upload">
+        or <label for="file-input">choose a local .enc backup file</label>
+        <input type="file" id="file-input" accept=".enc" onchange="handleLocalFile(event)">
+      </div>
+
+      <div id="lock-alert" class="alert alert-error"></div>
+    </div>
+  </div>
+
+  <!-- Dashboard View (After Unlock) -->
+  <div id="dashboard-view">
+    <header>
+      <div class="container header-inner">
+        <div class="logo-badge">
+          <h2>TELEVAULT SECURE RECOVERY</h2>
+          <div class="status-pill">
+            <span class="status-dot"></span>
+            <span>DECRYPTED & VERIFIED</span>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button class="btn-secondary" onclick="downloadZip()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Download ZIP
+          </button>
+          <button class="btn-secondary" onclick="downloadTarGz()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+            Save Raw TAR.GZ
+          </button>
+          <button class="btn-danger" onclick="lockVault()">
+            Lock Vault
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="container">
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('tab-env', this)">
+          🔑 Environment (.env)
+        </button>
+        <button class="tab-btn" onclick="switchTab('tab-files', this)">
+          📁 Vault Files (<span id="files-count">0</span>)
+        </button>
+        <button class="tab-btn" onclick="switchTab('tab-users', this)">
+          👥 Bot Users & Auth
+        </button>
+        <button class="tab-btn" onclick="switchTab('tab-restore', this)">
+          ⚡ 1-Click Restore Command
+        </button>
+      </div>
+
+      <!-- Tab 1: Environment Variables -->
+      <div id="tab-env" class="tab-content active">
+        <div class="section-header">
+          <div>
+            <h3>Environment & API Keys</h3>
+            <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 4px;">Decrypted environment variables ready to copy or view</p>
+          </div>
+          <div style="display: flex; gap: 0.5rem;">
+            <button class="btn-secondary" onclick="toggleEnvMasking()">
+              <span id="mask-toggle-text">👁️ Reveal All</span>
+            </button>
+            <button class="btn-secondary" onclick="copyRawEnv()">
+              📋 Copy Complete .env
+            </button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 25%;">Key</th>
+                  <th>Value</th>
+                  <th style="width: 80px; text-align: right;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="env-table-body">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div style="margin-top: 1.5rem;">
+          <h4 style="font-size: 0.9rem; margin-bottom: 0.75rem;">Raw .env File Content</h4>
+          <pre id="raw-env-box" class="code-block"></pre>
+        </div>
+      </div>
+
+      <!-- Tab 2: Vault Files Explorer -->
+      <div id="tab-files" class="tab-content">
+        <div class="section-header">
+          <div>
+            <h3>Extracted Vault Files</h3>
+            <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 4px;">Download any individual database, session, or index file</p>
+          </div>
+          <button class="btn-secondary" onclick="downloadZip()">
+            📦 Download All (ZIP)
+          </button>
+        </div>
+
+        <div class="card">
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>File Name</th>
+                  <th>Type</th>
+                  <th>Size</th>
+                  <th style="text-align: right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="files-table-body">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 3: Users & Auth -->
+      <div id="tab-users" class="tab-content">
+        <div class="section-header">
+          <div>
+            <h3>Authorized Bot Users & Roles</h3>
+            <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 4px;">Extracted from auth_data.json</p>
+          </div>
+          <div id="join-pwd-badge" class="badge badge-config" style="font-size: 0.85rem; padding: 6px 12px;"></div>
+        </div>
+
+        <div id="users-grid" class="user-grid">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- Tab 4: 1-Click Restore -->
+      <div id="tab-restore" class="tab-content">
+        <div class="section-header">
+          <div>
+            <h3>Disaster Recovery & Quick Setup</h3>
+            <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 4px;">Run this single command on any fresh Ubuntu VPS to restore all bot files and credentials instantly</p>
+          </div>
+          <button class="btn-secondary" onclick="copyRestoreCommand()">
+            📋 Copy Command
+          </button>
+        </div>
+
+        <div class="card" style="padding: 1.25rem;">
+          <pre id="restore-cmd-box" class="code-block" style="color: #38bdf8;">
+# Run on fresh Ubuntu 22.04 / 24.04 VPS:
+curl -fsSL https://raw.githubusercontent.com/eulerx0/vault/main/secrets_vault.enc -o /tmp/secrets_vault.enc && \
+mkdir -p /opt/telegram-bot && cd /opt/telegram-bot && \
+openssl enc -d -aes-256-cbc -pbkdf2 -iter 10000 -in /tmp/secrets_vault.enc | tar -xzf - && \
+echo '✅ TeleVault Credentials and Database Restored Successfully!'
+          </pre>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- View Modal -->
+  <div id="view-modal" class="modal-backdrop" onclick="closeModal(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h4 id="modal-filename">Viewing File</h4>
+        <button class="icon-btn" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <pre id="modal-filecontent" class="code-block"></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+    <span id="toast-msg">Copied to clipboard!</span>
+  </div>
+
+  <script>
+    let extractedFiles = [];
+    let decryptedTarGzBuffer = null;
+    let isEnvMasked = true;
+    let envEntries = [];
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-msg').textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+
+    function togglePasswordVisibility() {
+      const input = document.getElementById('master-password');
+      input.type = input.type === 'password' ? 'text' : 'password';
+    }
+
+    function switchTab(tabId, btn) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(tabId).classList.add('active');
+    }
+
+    // TAR Parser (Standard ustar / POSIX)
+    function parseTar(arrayBuffer) {
+      const files = [];
+      let offset = 0;
+      const bytes = new Uint8Array(arrayBuffer);
+      const decoder = new TextDecoder('utf-8');
+
+      while (offset + 512 <= bytes.length) {
+        if (bytes[offset] === 0) {
+          let isZero = true;
+          for (let i = 0; i < 512; i++) {
+            if (bytes[offset + i] !== 0) { isZero = false; break; }
+          }
+          if (isZero) break;
+        }
+
+        let name = decoder.decode(bytes.subarray(offset, offset + 100)).replace(/\0+$/, '').trim();
+        let prefix = decoder.decode(bytes.subarray(offset + 345, offset + 500)).replace(/\0+$/, '').trim();
+        if (prefix) name = prefix + '/' + name;
+
+        let sizeStr = decoder.decode(bytes.subarray(offset + 124, offset + 136)).replace(/\0+$/, '').trim();
+        let size = parseInt(sizeStr, 8) || 0;
+        let typeflag = String.fromCharCode(bytes[offset + 156]);
+
+        offset += 512;
+        if (typeflag === '0' || typeflag === '\0' || typeflag === '') {
+          files.push({
+            name,
+            size,
+            data: bytes.slice(offset, offset + size)
+          });
+        }
+        offset += Math.ceil(size / 512) * 512;
+      }
+      return files;
+    }
+
+    // WebCrypto OpenSSL Decryption
+    async function decryptVault(encryptedArrayBuffer, password) {
+      const bytes = new Uint8Array(encryptedArrayBuffer);
+      const magic = new TextDecoder().decode(bytes.subarray(0, 8));
+      if (magic !== 'Salted__') {
+        throw new Error('الملف غير صالح أو لا يحتوي على تشفير OpenSSL Salted__');
+      }
+
+      const salt = bytes.subarray(8, 16);
+      const ciphertext = bytes.subarray(16);
+
+      const enc = new TextEncoder();
+      const keyMaterial = await window.crypto.subtle.importKey(
+        'raw',
+        enc.encode(password),
+        { name: 'PBKDF2' },
+        false,
+        ['deriveBits']
+      );
+
+      const derivedBits = await window.crypto.subtle.deriveBits(
+        { name: 'PBKDF2', salt: salt, iterations: 10000, hash: 'SHA-256' },
+        keyMaterial,
+        384
+      );
+
+      const keyBytes = derivedBits.slice(0, 32);
+      const ivBytes = derivedBits.slice(32, 48);
+
+      const aesKey = await window.crypto.subtle.importKey(
+        'raw',
+        keyBytes,
+        { name: 'AES-CBC' },
+        false,
+        ['decrypt']
+      );
+
+      let decryptedBuffer;
+      try {
+        decryptedBuffer = await window.crypto.subtle.decrypt(
+          { name: 'AES-CBC', iv: ivBytes },
+          aesKey,
+          ciphertext
+        );
+      } catch (e) {
+        throw new Error('كلمة المرور غير صحيحة (فشل فك التشفير)');
+      }
+
+      decryptedTarGzBuffer = decryptedBuffer;
+
+      // Decompress GZIP
+      let tarBuffer;
+      if (typeof DecompressionStream !== 'undefined') {
+        try {
+          const ds = new DecompressionStream('gzip');
+          const stream = new Response(decryptedBuffer).body.pipeThrough(ds);
+          tarBuffer = await new Response(stream).arrayBuffer();
+        } catch (err) {
+          if (window.pako) {
+            tarBuffer = pako.ungzip(new Uint8Array(decryptedBuffer)).buffer;
+          } else {
+            throw err;
+          }
+        }
+      } else if (window.pako) {
+        tarBuffer = pako.ungzip(new Uint8Array(decryptedBuffer)).buffer;
+      } else {
+        throw new Error('المتصفح لا يدعم فك ضغط Gzip بدون مكتبة pako');
+      }
+
+      return parseTar(tarBuffer);
+    }
+
+    async function handleUnlock(e) {
+      e.preventDefault();
+      const password = document.getElementById('master-password').value;
+      const btn = document.getElementById('unlock-btn');
+      const alertBox = document.getElementById('lock-alert');
+
+      alertBox.style.display = 'none';
+      btn.disabled = true;
+      btn.innerHTML = '<span>Decrypting Vault...</span>';
+
+      try {
+        let encBuffer;
+        if (window.customEncBuffer) {
+          encBuffer = window.customEncBuffer;
+        } else {
+          // Fetch raw from repo
+          const resp = await fetch('secrets_vault.enc?t=' + Date.now());
+          if (!resp.ok) throw new Error('تعذر تحميل ملف secrets_vault.enc من المستودع (' + resp.status + ')');
+          encBuffer = await resp.arrayBuffer();
+        }
+
+        extractedFiles = await decryptVault(encBuffer, password);
+        renderDashboard();
+      } catch (err) {
+        alertBox.textContent = err.message || 'حدث خطأ أثناء فك التشفير';
+        alertBox.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg> Unlock & Decrypt';
+      }
+    }
+
+    function handleLocalFile(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        window.customEncBuffer = evt.target.result;
+        showToast('تم تحميل الملف المحلي: ' + file.name);
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function renderDashboard() {
+      document.getElementById('lock-screen').style.display = 'none';
+      document.getElementById('dashboard-view').style.display = 'block';
+      document.getElementById('files-count').textContent = extractedFiles.length;
+
+      renderEnvTab();
+      renderFilesTab();
+      renderUsersTab();
+      showToast('تم فك التشفير بنجاح!');
+    }
+
+    function renderEnvTab() {
+      const envFile = extractedFiles.find(f => f.name === '.env');
+      const tableBody = document.getElementById('env-table-body');
+      const rawBox = document.getElementById('raw-env-box');
+
+      tableBody.innerHTML = '';
+      envEntries = [];
+
+      if (!envFile) {
+        tableBody.innerHTML = '<tr><td colspan="3" style="color: var(--text-muted); text-align: center;">لم يتم العثور على ملف .env في الأرشيف</td></tr>';
+        rawBox.textContent = 'None';
+        return;
+      }
+
+      const text = new TextDecoder().decode(envFile.data);
+      rawBox.textContent = text;
+
+      const lines = text.split('\n');
+      lines.forEach((line, idx) => {
+        line = line.trim();
+        if (!line || line.startsWith('#')) return;
+        const eqIdx = line.indexOf('=');
+        if (eqIdx === -1) return;
+        const key = line.slice(0, eqIdx).trim();
+        const val = line.slice(eqIdx + 1).trim();
+        envEntries.push({ key, val, id: 'env-' + idx });
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><span class="secret-key">${key}</span></td>
+          <td>
+            <div class="secret-value-box">
+              <span class="secret-value" id="val-${idx}">${isEnvMasked ? '••••••••••••••••' : val}</span>
+              <button class="icon-btn" onclick="toggleSingleEnv('${idx}')" title="Reveal/Mask">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              </button>
+            </div>
+          </td>
+          <td style="text-align: right;">
+            <button class="btn-secondary" style="padding: 4px 8px; font-size: 0.75rem;" onclick="copyText('${val.replace(/'/g, "\\'")}')">Copy</button>
+          </td>
+        `;
+        tableBody.appendChild(tr);
+      });
+    }
+
+    function toggleEnvMasking() {
+      isEnvMasked = !isEnvMasked;
+      document.getElementById('mask-toggle-text').textContent = isEnvMasked ? '👁️ Reveal All' : '🔒 Mask All';
+      envEntries.forEach((item, idx) => {
+        const el = document.getElementById('val-' + idx);
+        if (el) el.textContent = isEnvMasked ? '••••••••••••••••' : item.val;
+      });
+    }
+
+    function toggleSingleEnv(idx) {
+      const el = document.getElementById('val-' + idx);
+      const item = envEntries[idx];
+      if (!el || !item) return;
+      el.textContent = el.textContent === '••••••••••••••••' ? item.val : '••••••••••••••••';
+    }
+
+    function copyRawEnv() {
+      const raw = document.getElementById('raw-env-box').textContent;
+      navigator.clipboard.writeText(raw);
+      showToast('تم نسخ ملف .env كاملاً!');
+    }
+
+    function copyText(txt) {
+      navigator.clipboard.writeText(txt);
+      showToast('تم النسخ إلى الحافظة!');
+    }
+
+    function copyRestoreCommand() {
+      const txt = document.getElementById('restore-cmd-box').textContent.trim();
+      navigator.clipboard.writeText(txt);
+      showToast('تم نسخ أمر الاسترجاع!');
+    }
+
+    function renderFilesTab() {
+      const tbody = document.getElementById('files-table-body');
+      tbody.innerHTML = '';
+
+      extractedFiles.forEach((file, idx) => {
+        let badgeClass = 'badge-config';
+        let typeName = 'File';
+
+        if (file.name.endsWith('.db')) {
+          badgeClass = 'badge-db'; typeName = 'Database';
+        } else if (file.name.endsWith('.session')) {
+          badgeClass = 'badge-session'; typeName = 'MTProto Session';
+        } else if (file.name.endsWith('.json')) {
+          badgeClass = 'badge-json'; typeName = 'JSON Document';
+        } else if (file.name === '.env') {
+          badgeClass = 'badge-config'; typeName = 'Environment';
+        }
+
+        const sizeFormatted = file.size > 1024 * 1024
+          ? (file.size / (1024 * 1024)).toFixed(2) + ' MB'
+          : (file.size / 1024).toFixed(1) + ' KB';
+
+        const isText = file.name.endsWith('.json') || file.name.endsWith('.txt') || file.name === '.env';
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><span class="mono" style="font-weight: 600;">${file.name}</span></td>
+          <td><span class="badge ${badgeClass}">${typeName}</span></td>
+          <td class="mono" style="color: var(--text-muted);">${sizeFormatted}</td>
+          <td style="text-align: right;">
+            ${isText ? `<button class="btn-secondary" style="padding: 4px 8px; font-size: 0.75rem; margin-right: 6px;" onclick="viewFile(${idx})">View</button>` : ''}
+            <button class="btn-secondary" style="padding: 4px 8px; font-size: 0.75rem;" onclick="downloadSingleFile(${idx})">Download</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderUsersTab() {
+      const authFile = extractedFiles.find(f => f.name.endsWith('auth_data.json'));
+      const grid = document.getElementById('users-grid');
+      const pwdBadge = document.getElementById('join-pwd-badge');
+      grid.innerHTML = '';
+
+      if (!authFile) {
+        grid.innerHTML = '<p style="color: var(--text-muted);">لا يوجد ملف auth_data.json</p>';
+        return;
+      }
+
+      try {
+        const text = new TextDecoder().decode(authFile.data);
+        const data = JSON.parse(text);
+
+        if (data.user_password) {
+          pwdBadge.textContent = '🔑 Join Password: ' + data.user_password;
+        }
+
+        const users = data.users || {};
+        for (const [uid, u] of Object.entries(users)) {
+          const card = document.createElement('div');
+          card.className = 'user-card';
+          card.innerHTML = `
+            <div class="user-card-header">
+              <span style="font-weight: 700;">${u.first_name || 'User'}</span>
+              <span class="badge ${u.role === 'owner' ? 'badge-db' : 'badge-config'}">${(u.role || 'user').toUpperCase()}</span>
+            </div>
+            <div style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.6;" class="mono">
+              <div>ID: <span style="color: var(--text-main);">${u.user_id}</span></div>
+              <div>Username: @${u.username || 'None'}</div>
+              <div>Status: ${u.status || 'active'}</div>
+              <div>Created: ${u.created_at || 'N/A'}</div>
+            </div>
+          `;
+          grid.appendChild(card);
+        }
+      } catch (e) {
+        grid.innerHTML = '<p style="color: var(--accent-danger);">خطأ في قراءة بيانات المستخدمين</p>';
+      }
+    }
+
+    function viewFile(idx) {
+      const f = extractedFiles[idx];
+      if (!f) return;
+      document.getElementById('modal-filename').textContent = f.name;
+      const text = new TextDecoder().decode(f.data);
+      document.getElementById('modal-filecontent').textContent = text;
+      document.getElementById('view-modal').style.display = 'flex';
+    }
+
+    function closeModal() {
+      document.getElementById('view-modal').style.display = 'none';
+    }
+
+    function downloadSingleFile(idx) {
+      const f = extractedFiles[idx];
+      if (!f) return;
+      const blob = new Blob([f.data], { type: 'application/octet-stream' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = f.name.split('/').pop();
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function downloadTarGz() {
+      if (!decryptedTarGzBuffer) return;
+      const blob = new Blob([decryptedTarGzBuffer], { type: 'application/gzip' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'vault-backup.tar.gz';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      showToast('تم تحميل الأرشيف المفكوك!');
+    }
+
+    async function downloadZip() {
+      if (!window.JSZip) {
+        showToast('مكتبة JSZip غير محملة');
+        return;
+      }
+      showToast('جاري إنشاء ملف ZIP...');
+      const zip = new JSZip();
+      extractedFiles.forEach(f => {
+        zip.file(f.name, f.data);
+      });
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'televault-all-decrypted.zip';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      showToast('تم تحميل ZIP بنجاح!');
+    }
+
+    function lockVault() {
+      extractedFiles = [];
+      decryptedTarGzBuffer = null;
+      window.customEncBuffer = null;
+      document.getElementById('master-password').value = '';
+      document.getElementById('dashboard-view').style.display = 'none';
+      document.getElementById('lock-screen').style.display = 'flex';
+      showToast('تم قفل الـ Vault ومسح الذاكرة!');
+    }
+  </script>
+</body>
+</html>
